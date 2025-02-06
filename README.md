@@ -13,6 +13,6 @@ conda activate cs329a-hw2
 pip install -e .  # Run this from root of the repo.
 ```
 
-This will make sure the package is installed with requirements, so you can import functionality from `cs329_hw2`. For instance, you can use the `get_sampler` function to get a sampler.
+This will make sure the package is installed with requirements, so you can import functionality from `cs329_hw2`.
 
 Make sure you have the `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `TOGETHER_API_KEY`, `GOOGLE_API_KEY`, and `ALPHA_VANTAGE_KEY` environment variables set.
