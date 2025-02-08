@@ -17,12 +17,12 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 import torch
 
 
-def generate_together(prompt, model, max_tokens=2048, temperature=0.7, **kwargs):
+def generate_together(model, messages, max_tokens=2048, temperature=0.7, **kwargs):
     output = None
     request_id = random.randint(1000, 9999)  # Generate unique request ID for tracking
 
     key = os.environ.get("TOGETHER_API_KEY")
-    messages = [{"content": prompt, "role": "user"}]    
+     
     logger.info(f"[Together-{request_id}] Starting request for model: {model}")
     
     for attempt, sleep_time in enumerate([1, 2, 4, 8, 16, 32], 1):
@@ -63,10 +63,10 @@ def generate_together(prompt, model, max_tokens=2048, temperature=0.7, **kwargs)
     return output.strip()
 
 
-def generate_openai(prompt, model, max_tokens=2048, temperature=0.7, **kwargs):
+def generate_openai(model, messages, max_tokens=2048, temperature=0.7, **kwargs):
 
     key = os.environ.get("OPENAI_API_KEY")
-    messages = [{"content": prompt, "role": "user"}]
+    
     client = openai.OpenAI(api_key=key)
 
     if model in ["o1-preview-2024-09-12", "o1-mini-2024-09-12"]:
@@ -100,10 +100,10 @@ def generate_openai(prompt, model, max_tokens=2048, temperature=0.7, **kwargs):
     return output
 
 
-def generate_anthropic(prompt, model, max_tokens=2048, temperature=0.7, **kwargs):
+def generate_anthropic(model, messages, max_tokens=2048, temperature=0.7, **kwargs):
     key = os.environ.get("ANTHROPIC_API_KEY")
     client = anthropic.Client(api_key=key)
-    messages = [{"content": prompt, "role": "user"}]     
+       
     # Extract system message once outside the retry loop
     system = next((msg["content"] for msg in messages if msg["role"] == "system"), "")
     messages_alt = [msg for msg in messages if msg["role"] != "system"]
