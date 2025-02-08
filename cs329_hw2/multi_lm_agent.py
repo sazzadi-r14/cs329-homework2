@@ -41,8 +41,10 @@ class MultiLMAgent:
             generation_temp: float - Temperature for generation (0.0-1.0)
             fusion_temp: float - Temperature for fusion (0.0-1.0)
         """
+        self.generation_temp=generation_temp
+        self.api_manager=api_manager
         ################ CODE STARTS HERE ###############
-
+        
         pass 
 
         ################ CODE ENDS HERE ###############
