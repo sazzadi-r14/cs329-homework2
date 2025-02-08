@@ -53,17 +53,22 @@ class MultiLMAgent:
         """
         INPUT:
             prompt: str - Input prompt for generation
-            
+            model: str - The model to use for generation
         OUTPUT:
             response: str - Generated response
         """
+
+        messages = [
+            {"role": "system", "content": "You are a helpful assistant that generates responses to user queries."},
+            {"role": "user", "content": prompt}
+        ]
         
         if "gpt" in model:
-            response = generate_openai(prompt, model, self.generation_temp)
+            response = generate_openai(messages=messages, model=model, temperature=self.generation_temp)
         elif "claude" in model:
-            response = generate_anthropic(prompt, model, self.generation_temp)
+            response = generate_anthropic(messages=messages, model=model, temperature=self.generation_temp)
         elif "together" in model:
-            response = generate_together(prompt, model, self.generation_temp)
+            response = generate_together(messages=messages, model=model, temperature=self.generation_temp)
         return response
 
     def single_LM_with_single_API_call(self, query: str, model: str) -> str:
