@@ -61,25 +61,6 @@ class APIManager:
 
         ################ CODE ENDS HERE ###############
         
-    def _fetch_webpage_content(self, url: str) -> Optional[Dict]:
-        """
-        INPUT:
-            url: str - URL to fetch
-            
-        OUTPUT:
-            Optional[Dict] containing:
-                - full_text: str - Full webpage text
-                - main_content: str - Main content section
-                - title: str - Page title
-                - meta_description: str - Meta description
-            Returns None if fetch fails
-        """
-        ################ CODE STARTS HERE ###############
-
-        pass
-
-        ################ CODE ENDS HERE ###############
-    
     def google_search(self, search_term: str, num_results: int = 10) -> List[Dict]:
         """
         INPUT:
@@ -157,7 +138,6 @@ class APIManager:
                 - temperature: str
                 - weather_description: str
                 - humidity: str
-                - conditions: str
                 - wind_speed: str
         """
         ################ CODE STARTS HERE ###############
