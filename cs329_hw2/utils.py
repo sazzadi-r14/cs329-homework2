@@ -22,7 +22,7 @@ def generate_together(model, messages, max_tokens=2048, temperature=0.7, **kwarg
     request_id = random.randint(1000, 9999)  # Generate unique request ID for tracking
 
     key = os.environ.get("TOGETHER_API_KEY")
-     
+
     logger.info(f"[Together-{request_id}] Starting request for model: {model}")
     
     for attempt, sleep_time in enumerate([1, 2, 4, 8, 16, 32], 1):
@@ -32,7 +32,7 @@ def generate_together(model, messages, max_tokens=2048, temperature=0.7, **kwarg
             endpoint = "https://api.together.xyz/v1/chat/completions"
             time.sleep(2)
 
-            logger.info(f"[Together-{request_id}] Attempt {attempt}: Sending request...")
+            #logger.info(f"[Together-{request_id}] Attempt {attempt}: Sending request...")
             res = requests.post(
                 endpoint,
                 json={
@@ -47,13 +47,13 @@ def generate_together(model, messages, max_tokens=2048, temperature=0.7, **kwarg
             )
 
             output = res.json()["choices"][0]["message"]["content"]
-            logger.info(f"[Together-{request_id}] Successfully received response")
+            #logger.info(f"[Together-{request_id}] Successfully received response")
             break
 
         except Exception as e:
             response = "failed before response" if res is None else res
             logger.error(f"[Together-{request_id}] {e} on response: {response}")
-            logger.info(f"[Together-{request_id}] Retrying in {sleep_time}s...")
+            #logger.info(f"[Together-{request_id}] Retrying in {sleep_time}s...")
             time.sleep(sleep_time)
 
     if output is None:
@@ -66,7 +66,7 @@ def generate_together(model, messages, max_tokens=2048, temperature=0.7, **kwarg
 def generate_openai(model, messages, max_tokens=2048, temperature=0.7, **kwargs):
 
     key = os.environ.get("OPENAI_API_KEY")
-    
+
     client = openai.OpenAI(api_key=key)
 
     if model in ["o1-preview-2024-09-12", "o1-mini-2024-09-12"]:
@@ -103,7 +103,7 @@ def generate_openai(model, messages, max_tokens=2048, temperature=0.7, **kwargs)
 def generate_anthropic(model, messages, max_tokens=2048, temperature=0.7, **kwargs):
     key = os.environ.get("ANTHROPIC_API_KEY")
     client = anthropic.Client(api_key=key)
-       
+    
     # Extract system message once outside the retry loop
     system = next((msg["content"] for msg in messages if msg["role"] == "system"), "")
     messages_alt = [msg for msg in messages if msg["role"] != "system"]
