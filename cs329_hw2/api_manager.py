@@ -138,7 +138,7 @@ class APIManager:
                 - temperature: str
                 - weather_description: str
                 - humidity: str
-                - wind_speed: str
+                - wind_speed: str, any wind speed value is acceptable
         """
         ################ CODE STARTS HERE ###############
 

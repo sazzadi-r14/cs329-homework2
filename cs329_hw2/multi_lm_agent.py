@@ -149,11 +149,13 @@ class MultiLMAgent:
 
         ################ CODE ENDS HERE ###############
     
-    def fuse(self, prompt: str, responses: List[Dict]) -> str:
+    def fuse(self, prompt: str) -> str:
         """
+        Queries multiple models with the same prompt and fuses the responses 
+        by combining the best elements from each response.
+
         INPUT:
             prompt: str - Original prompt
-            responses: List[Dict] - List of responses from multiple models
             
         OUTPUT:
             str - Single fused response combining the best elements
