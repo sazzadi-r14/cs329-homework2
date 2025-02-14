@@ -388,8 +388,7 @@ Required output format:
                 - temperature: str
                 - weather_description: str
                 - humidity: str
-                - conditions: str
-                - wind_speed: str
+                - wind_speed: str, any wind speed value is acceptable
         """
         ################ CODE STARTS HERE ###############
         print(f"\nGetting weather for location: {location}, date: {date}, hour: {hour}")
