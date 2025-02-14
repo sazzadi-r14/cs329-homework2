@@ -1,0 +1,6 @@
+.env
+.ipynb_checkpoints/
+.jupyter/
+.virtual_documents/
+cs329_hw2.egg-info/
+cs329_hw2/__pycache__/

@@ -23,7 +23,7 @@ def generate_together(model, messages, max_tokens=2048, temperature=0.7, **kwarg
 
     key = os.environ.get("TOGETHER_API_KEY")
      
-    logger.info(f"[Together-{request_id}] Starting request for model: {model}")
+    # logger.info(f"[Together-{request_id}] Starting request for model: {model}")
     
     for attempt, sleep_time in enumerate([1, 2, 4, 8, 16, 32], 1):
         res = None
@@ -32,7 +32,7 @@ def generate_together(model, messages, max_tokens=2048, temperature=0.7, **kwarg
             endpoint = "https://api.together.xyz/v1/chat/completions"
             time.sleep(2)
 
-            logger.info(f"[Together-{request_id}] Attempt {attempt}: Sending request...")
+            # logger.info(f"[Together-{request_id}] Attempt {attempt}: Sending request...")
             res = requests.post(
                 endpoint,
                 json={
@@ -47,7 +47,7 @@ def generate_together(model, messages, max_tokens=2048, temperature=0.7, **kwarg
             )
 
             output = res.json()["choices"][0]["message"]["content"]
-            logger.info(f"[Together-{request_id}] Successfully received response")
+            # logger.info(f"[Together-{request_id}] Successfully received response")
             break
 
         except Exception as e:

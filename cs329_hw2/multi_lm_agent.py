@@ -67,8 +67,11 @@ class MultiLMAgent:
             response = generate_openai(messages=messages, model=model, temperature=self.generation_temp)
         elif "claude" in model:
             response = generate_anthropic(messages=messages, model=model, temperature=self.generation_temp)
-        elif "together" in model:
+        elif "llama" in model:
             response = generate_together(messages=messages, model=model, temperature=self.generation_temp)
+        else:
+            raise ValueError(f"Unsupported model: {model}")
+        
         return response
 
     def single_LM_with_single_API_call(self, query: str, model: str) -> str:
