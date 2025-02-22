@@ -6,10 +6,14 @@ import json
 from googleapiclient.discovery import build
 from textblob import TextBlob
 from typing import Dict, List, Optional, Any
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse, quote
 import pytz
+import inspect
+from dotenv import load_dotenv, find_dotenv
+
+load_dotenv(find_dotenv())
 
 class APIManager:
     """A unified class to manage various API interactions"""
@@ -24,10 +28,11 @@ class APIManager:
         Initializes API keys and configurations
         """
         ################ CODE STARTS HERE ###############
-
+        
         self.google_api_key = google_api_key
         self.google_cx_id = google_cx_id
         self.alpha_vantage_key = alpha_vantage_key
+        
 
         ################ CODE ENDS HERE ###############
 
@@ -41,8 +46,104 @@ class APIManager:
             Optional[Dict] - Parameters needed for the specified function or None if parsing fails
         """
         ################ CODE STARTS HERE ###############
+        
 
-        pass
+        from typing import Literal
+
+        # Define parameter schemas for each function
+        class GoogleSearchParams(BaseModel):
+            search_term: str = Field(..., description="The search query term")
+            num_results: Optional[int] = Field(None, description="Number of results to return (default: 10)")
+
+        class StockDataParams(BaseModel):
+            symbol: str = Field(..., description="Stock symbol (e.g., 'AAPL')")
+            date: Optional[str] = Field(None, description="Date in format 'YYYY-MM-DD'")
+
+        class SentimentParams(BaseModel):
+            text: str = Field(..., description="Text to analyze for sentiment")
+
+        class WeatherParams(BaseModel):
+            location: str = Field(..., description="Location string (e.g., 'Palo Alto, CA, US')")
+            date: str = Field(..., description="Date in YYYY-MM-DD format")
+            hour: Optional[str] = Field(None, description="Hour in 24-hour format (default: '12')")
+
+        # Map function names to their parameter schemas and get docstrings directly
+        function_info = {
+            "google_search": {
+                "schema": GoogleSearchParams,
+                "method": self.google_search
+            },
+            "get_stock_data": {
+                "schema": StockDataParams,
+                "method": self.get_stock_data
+            },
+            "analyze_sentiment": {
+                "schema": SentimentParams,
+                "method": self.analyze_sentiment
+            },
+            "get_weather": {
+                "schema": WeatherParams,
+                "method": self.get_weather
+            }
+        }
+
+        # Get the appropriate schema and docstring
+        function_details = function_info.get(function_name)
+        if not function_details:
+            
+            return None
+
+        schema = function_details["schema"]
+        docstring = inspect.getdoc(function_details["method"])
+
+        try:
+            
+            # Create OpenAI client
+            openai = OpenAI()
+
+            # Construct the prompt
+            prompt = f"""Parse the following query to extract parameters for the {function_name} function.
+
+Function Description:
+{docstring}
+
+Query: {query}
+
+Required output format should match this schema:
+{schema.model_json_schema()}
+
+Extract only the necessary parameters from the query. If a parameter is optional and not mentioned in the query, omit it."""
+
+            # Get structured output from OpenAI
+            completion = openai.beta.chat.completions.parse(
+                model="gpt-4o",
+                messages=[
+                    {"role": "system", "content": "You are a parameter parsing expert. Extract parameters from queries precisely."},
+                    {"role": "user", "content": prompt}
+                ],
+                response_format=schema
+            )
+
+            
+            # Parse the response
+            params = json.loads(completion.choices[0].message.content)
+            
+            
+            # Validate against schema
+            validated_params = schema(**params)
+            final_params = validated_params.model_dump(exclude_none=True)
+
+            # Reapply default values if not provided
+            if function_name == "google_search" and final_params.get("num_results") is None:
+                final_params["num_results"] = 10
+            if function_name == "get_weather" and final_params.get("hour") is None:
+                final_params["hour"] = "12"
+
+            return final_params
+
+        except Exception as e:
+            
+            return None
 
         ################ CODE ENDS HERE ###############
 
@@ -58,8 +159,131 @@ class APIManager:
                 - error: str (optional) - Error message if something went wrong
         """
         ################ CODE STARTS HERE ###############
+        
 
-        pass
+        from typing import Literal
+        import inspect
+
+        class RouterResponse(BaseModel):
+            api_function: Literal["google_search", "get_stock_data", "analyze_sentiment", "get_weather"]
+            explanation: str
+
+        # Get function descriptions directly from docstrings
+        function_methods = {
+            "google_search": self.google_search,
+            "get_stock_data": self.get_stock_data,
+            "analyze_sentiment": self.analyze_sentiment,
+            "get_weather": self.get_weather
+        }
+
+        # Format function descriptions with docstrings
+        function_descriptions = {}
+        for func_name, method in function_methods.items():
+            docstring = inspect.getdoc(method)
+            # Add example queries based on function name
+            example_queries = {
+                "google_search": '"What are the opening hours of a restaurant?", "Find information about recent events"',
+                "get_stock_data": '"What\'s the current price of AAPL?", "Show me NVIDIA stock data for last week"',
+                "analyze_sentiment": '"Is this review positive or negative?", "What\'s the sentiment of this tweet?"',
+                "get_weather": '"What\'s the weather like in New York?", "Will it rain tomorrow in Seattle?"'
+            }
+            function_descriptions[func_name] = f"""{docstring}
+            Example queries: {example_queries[func_name]}"""
+
+        try:
+            
+            # Create OpenAI client
+            openai = OpenAI()
+
+            # Construct the prompt for routing with enhanced function descriptions
+            prompt = f"""Analyze the following query and determine which API function should be used to handle it.
+
+Available functions and their descriptions:
+
+1. google_search:
+{function_descriptions["google_search"]}
+
+2. get_stock_data:
+{function_descriptions["get_stock_data"]}
+
+3. analyze_sentiment:
+{function_descriptions["analyze_sentiment"]}
+
+4. get_weather:
+{function_descriptions["get_weather"]}
+
+Query: {query}
+
+Required output format should match this schema:
+{RouterResponse.model_json_schema()}
+"""
+
+            
+            # Get structured output from OpenAI
+            completion = openai.beta.chat.completions.parse(
+                model="gpt-4o",
+                messages=[
+                    {"role": "system", "content": "You are an API routing expert. Select the most appropriate API for each query."},
+                    {"role": "user", "content": prompt}
+                ],
+                response_format=RouterResponse
+            )
+
+            # Parse the routing response
+            route_info = RouterResponse(**json.loads(completion.choices[0].message.content))
+            
+            
+            
+            # Get parameters for the selected API
+            params = self.parse_query_params(query, route_info.api_function)
+            
+            if params is None:
+                
+                return {
+                    "results": None,
+                    "api_used": route_info.api_function,
+                    "error": "Failed to parse query parameters"
+                }
+
+            # Call the appropriate API function with the parsed parameters
+            try:
+                
+                if route_info.api_function == "google_search":
+                    results = self.google_search(**params)
+                elif route_info.api_function == "get_stock_data":
+                    results = self.get_stock_data(**params)
+                elif route_info.api_function == "analyze_sentiment":
+                    results = self.analyze_sentiment(**params)
+                elif route_info.api_function == "get_weather":
+                    results = self.get_weather(**params)
+                else:
+                    
+                    return {
+                        "results": None,
+                        "api_used": route_info.api_function,
+                        "error": "Unknown API function"
+                    }
+
+                return {
+                    "results": results,
+                    "api_used": route_info.api_function
+                }
+
+            except Exception as e:
+                
+                return {
+                    "results": None,
+                    "api_used": route_info.api_function,
+                    "error": f"API call failed: {str(e)}"
+                }
+
+        except Exception as e:
+            
+            return {
+                "results": None,
+                "api_used": "none",
+                "error": f"Routing failed: {str(e)}"
+            }
 
         ################ CODE ENDS HERE ###############
         
@@ -81,7 +305,7 @@ class APIManager:
             # Validate and parse URL
             parsed_url = urlparse(url)
             if not parsed_url.scheme or not parsed_url.netloc:
-                print(f"Invalid URL format: {url}")
+                
                 return None
             
             # Encode URL properly
@@ -97,7 +321,7 @@ class APIManager:
             # Check content type
             content_type = response.headers.get('content-type', '').lower()
             if 'text/html' not in content_type:
-                print(f"Skipping non-HTML content: {content_type}")
+                
                 return None
             
             # Parse the webpage content
@@ -125,7 +349,7 @@ class APIManager:
             # Get main content (try common content containers)
             main_content = ''
             content_tags = soup.find_all(['article', 'main', 'div'], 
-                                       class_=['content', 'main', 'article', 'post', 'entry-content', 'page-content'])
+                                        class_=['content', 'main', 'article', 'post', 'entry-content', 'page-content'])
             if content_tags:
                 main_content = ' '.join(tag.get_text(strip=True, separator=' ') for tag in content_tags)
             else:
@@ -152,12 +376,12 @@ class APIManager:
             }
             
         except Exception as e:
-            print(f"Failed to fetch webpage content: {str(e)}")
+            
             return None
 
         ################ CODE ENDS HERE ###############
     
-    def google_search(self, search_term: str, num_results: int = 10) -> List[Dict]:
+    def google_search(self, search_term: str, num_results: int = 5) -> List[Dict]:
         """
         INPUT:
             search_term: str - The search query
@@ -172,6 +396,7 @@ class APIManager:
                 - webpage_content: Dict (optional)
         """
         ################ CODE STARTS HERE ###############
+        
         try:
             # Build the Custom Search API service
             service = build("customsearch", "v1", developerKey=self.google_api_key)
@@ -180,7 +405,7 @@ class APIManager:
             result = service.cse().list(
                 q=search_term,
                 cx=self.google_cx_id,
-                num=min(num_results, 10)  # API limits to 10 results per request
+                num=min(num_results, 5)  # API limits to 10 results per request
             ).execute()
 
             # Process results
@@ -223,7 +448,7 @@ class APIManager:
             
         except Exception as e:
             # Return empty list if search fails
-            print(f"Google search failed: {str(e)}")
+            
             return []
 
         ################ CODE ENDS HERE ###############
@@ -268,7 +493,7 @@ class APIManager:
                 
                 # Check for error messages
                 if "Error Message" in data:
-                    print(f"API Error: {data['Error Message']}")
+                    
                     return {}
                     
                 # Get daily time series data
@@ -286,7 +511,7 @@ class APIManager:
                         'volume': int(daily_data['5. volume'])
                     }
                 else:
-                    print(f"No data available for date: {date}")
+                    
                     return {}
                     
             else:
@@ -303,7 +528,7 @@ class APIManager:
                 
                 # Check for error messages
                 if "Error Message" in data:
-                    print(f"API Error: {data['Error Message']}")
+                    
                     return {}
                     
                 quote = data.get('Global Quote', {})
@@ -315,11 +540,11 @@ class APIManager:
                         'change_percent': quote.get('10. change percent', '0%')
                     }
                 else:
-                    print(f"No current data available for symbol: {symbol}")
+                    
                     return {}
                     
         except Exception as e:
-            print(f"Failed to fetch stock data: {str(e)}")
+            
             return {}
 
         ################ CODE ENDS HERE ###############
@@ -362,7 +587,7 @@ Required output format:
 }}"""
 
         completion = openai.beta.chat.completions.parse(
-            model="gpt-4o-mini",
+            model="gpt-4o",
             messages=[
                 {"role": "system", "content": "You are a sentiment analysis expert. Provide analysis results in the exact JSON format specified."},
                 {"role": "user", "content": prompt}
@@ -379,7 +604,7 @@ Required output format:
     def get_weather(location: str, date: str, hour: str = "12") -> Dict:
         """
         INPUT:
-            location: str - Location string (e.g., "Palo Alto, CA")
+            location: str - Location string (e.g., "Palo Alto, CA, USA") either include only the city name, or city, state, country.
             date: str - Date in YYYY-MM-DD format
             hour: str - Hour in 24-hour format (default: "12")
             
@@ -391,10 +616,11 @@ Required output format:
                 - wind_speed: str, any wind speed value is acceptable
         """
         ################ CODE STARTS HERE ###############
-        print(f"\nGetting weather for location: {location}, date: {date}, hour: {hour}")
+        
+       
         
         lat, lon = APIManager._get_coordinates(location)
-        print(f"Coordinates retrieved - lat: {lat}, lon: {lon}")
+       
         
         if lat is None or lon is None:
             # If coordinates couldn't be retrieved, return an error indication (or raise an exception)
@@ -406,19 +632,19 @@ Required output format:
             "lon": lon,
             "exclude": "minutely,hourly,daily,alerts",  # exclude all but current
             "appid": os.getenv("OPENWEATHER_API_KEY"),
-            "units": "metric"  # use Celsius; use "imperial" for Fahrenheit or omit for Kelvin
+            # "units": "metric"  # use Celsius; use "imperial" for Fahrenheit or omit for Kelvin
         }
         try:
-            print("Making API request to OpenWeather...")
+           
             response = requests.get(url, params=params)
             response.raise_for_status()
-            print("API request successful")
+           
         except requests.RequestException as e:
-            print(f"Error fetching weather data: {e}")
+           
             return {"error": "Failed to retrieve weather data"}
         
         data = response.json()
-        print(f"Response received with status code: {response.status_code}")
+       
         
         current = data.get("current", {})
         # Extract fields from the current weather data
@@ -446,7 +672,7 @@ Required output format:
             "conditions": main_condition,
             "weather_description": weather_description or description_text
         }
-        print(f"Weather data retrieved successfully: {result}")
+       
         return result
 
         ################ CODE ENDS HERE ###############
@@ -461,29 +687,30 @@ Required output format:
             Optional[tuple] - (latitude: float, longitude: float) or None if not found
         """
         ################ CODE STARTS HERE ###############
-        print(f"\nGetting coordinates for location: {location}")
+        
+       
         url = "http://api.openweathermap.org/geo/1.0/direct"
-        params = {"q": location, "limit": 1, "appid": "873b7e245edcc01cb2da60b2a3562e9a"}
+        params = {"q": location, "limit": 1, "appid": os.getenv("OPENWEATHER_API_KEY")}
         try:
             response = requests.get(url, params=params)
             response.raise_for_status()  # Raises an HTTPError if the status is 4xx/5xx
-            print(response)
-            print(response.json())
-            print("Geocoding API request successful")
+           
+           
+           
         except requests.RequestException as e:
-            print(f"Error fetching coordinates: {e}")
+           
             return None, None
 
         data = response.json()
         if not data:
             # No results found for the location
-            print(f"No coordinates found for '{location}'.")
+           
             return None, None
 
         # Extract latitude and longitude from the first result
         latitude = data[0].get("lat")
         longitude = data[0].get("lon")
-        print(f"Coordinates found - lat: {latitude}, lon: {longitude}")
+       
         return latitude, longitude
 
 
